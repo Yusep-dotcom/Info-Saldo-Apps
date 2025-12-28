@@ -1,28 +1,30 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
-// These imports are used to open the database
 import 'package:drift/native.dart';
 import 'package:info_saldo_apps/app/data/models/transaction_with_category.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:info_saldo_apps/app/data/local/tables/category.dart';
 import 'package:info_saldo_apps/app/data/local/tables/transaction.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 part 'database.g.dart';
 
-@DriftDatabase(
-  // relative import for the drift file. Drift also supports `package:`
-  // imports
-  tables: [Categories, Transactions],
-)
+@DriftDatabase(tables: [Categories, Transactions])
 class AppDb extends _$AppDb {
-  AppDb() : super(_openConnection());
+  static final AppDb _instance = AppDb._internal();
+
+  factory AppDb() => _instance;
+
+  AppDb._internal() : super(_openConnection());
 
   @override
   int get schemaVersion => 1;
 
-  //CRUD
+  // =========================
+  // CATEGORY
+  // =========================
+
   Future<List<Category>> getAllCategoriesRepo(int type) async {
     return await (select(
       categories,
@@ -35,34 +37,58 @@ class AppDb extends _$AppDb {
     );
   }
 
+  /// ❗️AMAN: hapus kategori TIDAK menghapus transaksi
   Future deleteCategoryRepo(int id) async {
     return (delete(categories)..where((tbl) => tbl.id.equals(id))).go();
   }
 
-  Stream<List<TransactionWithCategory>> getTransactionByDateRepo(DateTime date) {
+  // =========================
+  // TRANSACTION
+  // =========================
+
+  Future<void> deleteTransaction(int id) async {
+    await (delete(transactions)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  /// 🔑 QUERY PALING PENTING
+  /// kategori boleh null → transaksi tetap tampil
+  Stream<List<TransactionWithCategory>> getTransactionByDateRepo(
+    DateTime date,
+  ) {
     final query = select(transactions).join([
-      innerJoin(categories, categories.id.equalsExp(transactions.category_id)),
+      leftOuterJoin(
+        categories,
+        categories.id.equalsExp(transactions.category_id),
+      ),
     ])..where(transactions.transaction_date.equals(date));
 
     return query.watch().map((rows) {
       return rows.map((row) {
         return TransactionWithCategory(
-          row.readTable(transactions),
-          row.readTable(categories),
+          transaction: row.readTable(transactions),
+          category:
+              row.readTableOrNull(categories) ??
+              Category(
+                id: -1,
+                name: 'Kategori dihapus',
+                type: 0,
+                createdAt: DateTime.now(),
+                updateAt: DateTime.now(),
+              ),
         );
       }).toList();
     });
   }
 }
 
-LazyDatabase _openConnection() {
-  // the LazyDatabase util lets us find the right location for the file async.
-  return LazyDatabase(() async {
-    // put the database file, called db.sqlite here, into the documents folder
-    // for your app.
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'db.sqlite'));
+// =========================
+// DATABASE CONNECTION
+// =========================
 
-    return NativeDatabase.createInBackground(file);
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'info_saldo_db.sqlite'));
+    return NativeDatabase(file);
   });
 }

@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "661325968082",
-    "project_id": "my-firebase-843dd",
-    "storage_bucket": "my-firebase-843dd.firebasestorage.app"
+    "project_number": "634610145670",
+    "project_id": "my-firebase-efbe8",
+    "storage_bucket": "my-firebase-efbe8.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:661325968082:android:ced03ba660aa6e05b1730b",
+        "mobilesdk_app_id": "1:634610145670:android:7eaacc849d1002caed3407",
         "android_client_info": {
-          "package_name": "com.example.app_1"
+          "package_name": "com.example.info_saldo_apps"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyChqFmTXP7J3A3rDVRhx0aOPq3l5lfGOd8"
+          "current_key": "AIzaSyDab8k9e4Ugy3CGqTdsLZRyxcpvk8H8qj4"
         }
       ],
       "services": {

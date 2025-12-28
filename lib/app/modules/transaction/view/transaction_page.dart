@@ -1,296 +1,224 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/get_core.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:info_saldo_apps/app/data/local/database.dart';
-import 'package:info_saldo_apps/app/data/models/transaction_with_category.dart';
-import 'package:info_saldo_apps/app/modules/auth/auth_controller.dart';
 import 'package:intl/intl.dart';
+import 'package:info_saldo_apps/app/data/local/database.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:info_saldo_apps/app/data/models/transaction_with_category.dart';
 
 class TransactionPage extends StatefulWidget {
-  final TransactionWithCategory? transactionwithCategory;
-  const TransactionPage({super.key, this.transactionwithCategory});
+  final TransactionWithCategory? transactionWithCategory;
+  const TransactionPage({super.key, this.transactionWithCategory});
 
   @override
   State<TransactionPage> createState() => _TransactionPageState();
 }
 
 class _TransactionPageState extends State<TransactionPage> {
-  @override
+  final AppDb database = Get.find<AppDb>();
+
   bool isIncome = true;
-  final database = Get.find<AppDb>();
-  List<String> list = ['Makan', 'Jajan', 'Transportasi'];
-  TextEditingController kategoriController = TextEditingController();
-  TextEditingController dateControler = TextEditingController();
-  TextEditingController amountControler = TextEditingController();
-  TextEditingController namaControler = TextEditingController();
+  int type = 2; // 2 = income, 1 = expense
+
   Category? selectedCategory;
-  late int type;
+  Category? deletedCategory;
 
-  late String dropDownValue = list.last;
-
-  final authC = Get.find<AuthController>();
-
-  Future insert(int amount, DateTime date, String name, int category_id) async {
-    DateTime now = DateTime.now();
-    final row = await database
-        .into(database.transactions)
-        .insertReturning(
-          TransactionsCompanion.insert(
-            title: name,
-            category_id: category_id,
-            transaction_date: date,
-            amount: amount,
-            createdAt: now,
-            updateAt: now,
-          ),
-        );
-    print('apa ini' + row.toString());
-  }
-
-  Future<List<Category>> getAllCategories(int type) async {
-    return database.getAllCategoriesRepo(type);
-  }
+  final amountController = TextEditingController();
+  final dateController = TextEditingController();
+  final nameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
 
-    type = 2;
+    if (widget.transactionWithCategory != null) {
+      final data = widget.transactionWithCategory!;
 
-    if (widget.transactionwithCategory != null) {
-      updateTransactionView(widget.transactionwithCategory!);
+      amountController.text = data.transaction.amount.toString();
+      nameController.text = data.transaction.title;
+      dateController.text = DateFormat(
+        'yyyy-MM-dd',
+      ).format(data.transaction.transaction_date);
+
+      selectedCategory = data.category;
+      type = data.category.type;
+      isIncome = type == 2;
     }
   }
 
-  void updateTransactionView(TransactionWithCategory data) {
-    amountControler.text = data.transaction.amount.toString();
-    namaControler.text = data.transaction.title;
-    dateControler.text = DateFormat(
-      'yyyy-MM-dd',
-    ).format(data.transaction.transaction_date);
-
-    selectedCategory = data.category;
-
-    isIncome = data.category.type == 2;
-    type = data.category.type;
-    (type == 1) ? isIncome = true : isIncome = false;
+  Future<List<Category>> getCategories() {
+    return database.getAllCategoriesRepo(type);
   }
 
-  void dispose() {
-    database.close();
-    super.dispose();
+  Future<void> saveTransaction() async {
+    if (selectedCategory == null) {
+      Get.snackbar('Error', 'Kategori wajib dipilih');
+      return;
+    }
+
+    final now = DateTime.now();
+
+    /// ================= EDIT =================
+    if (widget.transactionWithCategory != null) {
+      final id = widget.transactionWithCategory!.transaction.id;
+
+      await (database.update(
+        database.transactions,
+      )..where((tbl) => tbl.id.equals(id))).write(
+        TransactionsCompanion(
+          title: drift.Value(nameController.text),
+          amount: drift.Value(int.parse(amountController.text)),
+          transaction_date: drift.Value(DateTime.parse(dateController.text)),
+          category_id: drift.Value(selectedCategory!.id),
+          updateAt: drift.Value(now),
+        ),
+      );
+    }
+    /// ================= TAMBAH =================
+    else {
+      await database
+          .into(database.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              title: nameController.text,
+              amount: int.parse(amountController.text),
+              transaction_date: DateTime.parse(dateController.text),
+              category_id: drift.Value(selectedCategory!.id),
+              createdAt: now,
+              updateAt: now,
+            ),
+          );
+    }
+
+    Get.back();
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        actionsPadding: EdgeInsets.only(top: 15),
         title: Text(
           'Tambah Transaksi',
-          style: GoogleFonts.montserrat(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
+          style: GoogleFonts.montserrat(color: Colors.white),
         ),
-
-        backgroundColor: Color(0xFF5656B4),
-        toolbarHeight: 85,
+        centerTitle: true,
+        backgroundColor: const Color(0xFF5656B4),
       ),
       body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        isIncome = true;
-                        type = (isIncome) ? 2 : 1;
-                        selectedCategory = null;
-                      });
-                    },
-                    child: Container(
-                      width: 40,
-                      margin: EdgeInsets.only(top: 20, left: 16),
-                      padding: EdgeInsets.all(20),
-
-                      decoration: BoxDecoration(
-                        color: isIncome ? Color(0xFF5656B4) : Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Color(0xFF5656B4), width: 2),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Pemasukan',
-                        style: GoogleFonts.montserrat(
-                          color: isIncome ? Colors.white : Color(0xFF5656B4),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10),
-
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        isIncome = false;
-                        type = (isIncome) ? 2 : 1;
-                        selectedCategory = null;
-                      });
-                    },
-                    child: Container(
-                      width: 40,
-                      margin: EdgeInsets.only(top: 20, right: 16),
-                      padding: EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: isIncome ? Colors.white : Color(0xFF5656B4),
-                        border: Border.all(color: Color(0xFF5656B4), width: 2),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        "Pengeluaran",
-                        style: GoogleFonts.montserrat(
-                          color: isIncome ? Color(0xFF5656B4) : Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            /// ================= TOGGLE =================
             Padding(
               padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _toggleButton(
+                      title: 'Pemasukan',
+                      active: isIncome,
 
+                      onTap: () {
+                        setState(() {
+                          isIncome = true;
+                          type = 2;
+                          selectedCategory = null;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _toggleButton(
+                      title: 'Pengeluaran',
+                      active: !isIncome,
+                      onTap: () {
+                        setState(() {
+                          isIncome = false;
+                          type = 1;
+                          selectedCategory = null;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            /// ================= FORM =================
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(
-                    controller: amountControler,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      hint: Text('Jumlah'),
-                    ),
-                  ),
-                  SizedBox(height: 10),
+                  _input(amountController, 'Jumlah'),
+                  const SizedBox(height: 10),
 
                   Text(
-                    'Kategori: ',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    'Kategori',
+                    style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
                   ),
+                  const SizedBox(height: 5),
+
                   FutureBuilder<List<Category>>(
-                    future: getAllCategories(type),
+                    future: getCategories(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
+                      if (!snapshot.hasData) {
+                        return const CircularProgressIndicator();
                       }
 
-                      if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                        final categories = snapshot.data!;
-
-                        // SET DEFAULT SEKALI SAJA
-                        if (selectedCategory == null) {
-                          selectedCategory = categories.first;
-                        }
-
-                        return DropdownButton<Category>(
-                          isExpanded: true,
-                          value: selectedCategory,
-                          icon: Icon(Icons.arrow_downward),
-                          items: categories.map((Category item) {
-                            return DropdownMenuItem<Category>(
-                              value: item,
-                              child: Text(item.name),
-                            );
-                          }).toList(),
-                          onChanged: (Category? value) {
-                            setState(() {
-                              selectedCategory = value;
-                            });
-                          },
-                        );
+                      final categories = snapshot.data!;
+                      if (categories.isEmpty) {
+                        return const Text('Kategori tidak tersedia');
                       }
 
-                      return Center(child: Text('Data kosong'));
-                    },
-                  ),
-
-                  SizedBox(height: 10),
-                  TextFormField(
-                    controller: dateControler,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      hint: Text('Tanggal'),
-                    ),
-                    onTap: () async {
-                      DateTime? PickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2025),
-                        lastDate: DateTime(2099),
-                      );
-                      if (PickedDate != null) {
-                        String formatedDate = DateFormat(
-                          'yyyy-MM-dd',
-                        ).format(PickedDate);
-
-                        dateControler.text = formatedDate;
+                      // 🔑 kalau kategori terhapus, reset dropdown
+                      if (selectedCategory != null &&
+                          !categories.any(
+                            (c) => c.id == selectedCategory!.id,
+                          )) {
+                        selectedCategory = null;
                       }
-                    },
-                  ),
 
-                  SizedBox(height: 10),
-                  TextField(
-                    controller: namaControler,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      hint: Text('Ketik disini untuk keterangan'),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          insert(
-                            int.parse(amountControler.text),
-                            DateTime.parse(dateControler.text),
-                            namaControler.text,
-                            selectedCategory!.id,
+                      return DropdownButton<Category>(
+                        isExpanded: true,
+                        hint: const Text('Pilih Kategori'),
+                        value: selectedCategory,
+                        items: categories.map((e) {
+                          return DropdownMenuItem<Category>(
+                            value: e,
+                            child: Text(e.name),
                           );
-                          Navigator.pop(context);
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedCategory = value;
+                          });
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF5656B4),
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 30,
-                            vertical: 15,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: Text('Tambah', style: GoogleFonts.montserrat()),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+                  _dateInput(),
+                  const SizedBox(height: 10),
+                  _input(nameController, 'Keterangan'),
+                  const SizedBox(height: 20),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF5656B4),
                       ),
-                      ElevatedButton(
-                        onPressed: () => authC.logout(),
-                        child: Icon(Icons.logout),
+                      onPressed: saveTransaction,
+
+                      child: Text(
+                        widget.transactionWithCategory == null
+                            ? 'Tambah'
+                            : 'Update',
+                        style: GoogleFonts.montserrat(color: Colors.white),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -298,6 +226,68 @@ class _TransactionPageState extends State<TransactionPage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// ================= WIDGETS =================
+
+  Widget _toggleButton({
+    required String title,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFF5656B4) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF5656B4), width: 2),
+        ),
+        child: Center(
+          child: Text(
+            title,
+            style: GoogleFonts.montserrat(
+              color: active ? Colors.white : const Color(0xFF5656B4),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _input(TextEditingController c, String hint) {
+    return TextField(
+      controller: c,
+      decoration: InputDecoration(
+        border: const OutlineInputBorder(),
+        hintText: hint,
+      ),
+    );
+  }
+
+  Widget _dateInput() {
+    return TextField(
+      controller: dateController,
+      readOnly: true,
+      decoration: const InputDecoration(
+        border: OutlineInputBorder(),
+        hintText: 'Tanggal',
+      ),
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2100),
+        );
+
+        if (date != null) {
+          dateController.text = DateFormat('yyyy-MM-dd').format(date);
+        }
+      },
     );
   }
 }

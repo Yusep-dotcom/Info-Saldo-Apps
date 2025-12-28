@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart'; // Gunakan GetX untuk find database
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:info_saldo_apps/app/data/local/database.dart';
 import 'package:info_saldo_apps/app/data/models/transaction_with_category.dart';
@@ -14,8 +14,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // JANGAN gunakan: final AppDb database = AppDb();
-  // Gunakan Get.find agar tidak "multiple times"
   final AppDb database = Get.find<AppDb>();
 
   @override
@@ -26,7 +24,9 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===================== SUMMARY =====================
+              /// ======================
+              /// SUMMARY
+              /// ======================
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Container(
@@ -36,9 +36,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Tambahkan Expanded di sini untuk mencegah Overflow
                       Expanded(
                         child: _summaryItem(
                           icon: Icons.download,
@@ -47,7 +45,7 @@ class _HomePageState extends State<HomePage> {
                           value: 'Rp 0',
                         ),
                       ),
-                      const SizedBox(width: 10), // Spasi antar item
+                      const SizedBox(width: 10),
                       Expanded(
                         child: _summaryItem(
                           icon: Icons.upload,
@@ -60,7 +58,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-      
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
@@ -71,16 +69,19 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-      
+
               const SizedBox(height: 8),
-      
+
+              /// ======================
+              /// LIST TRANSAKSI
+              /// ======================
               StreamBuilder<List<TransactionWithCategory>>(
                 stream: database.getTransactionByDateRepo(widget.selectedDate),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-      
+
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const Center(
                       child: Padding(
@@ -89,16 +90,16 @@ class _HomePageState extends State<HomePage> {
                       ),
                     );
                   }
-      
+
                   final data = snapshot.data!;
-      
+
                   return ListView.builder(
                     itemCount: data.length,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemBuilder: (context, index) {
                       final item = data[index];
-      
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -107,20 +108,13 @@ class _HomePageState extends State<HomePage> {
                         child: Card(
                           elevation: 4,
                           child: ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                item.category.type == 1
-                                    ? Icons.arrow_upward
-                                    : Icons.arrow_downward,
-                                color: item.category.type == 1
-                                    ? const Color(0xFF5656B4)
-                                    : Colors.red,
-                              ),
+                            leading: Icon(
+                              item.category.type == 1
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward,
+                              color: item.category.type == 1
+                                  ? Colors.red
+                                  : Colors.blue,
                             ),
                             title: Text(
                               'Rp ${item.transaction.amount}',
@@ -134,44 +128,25 @@ class _HomePageState extends State<HomePage> {
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
-      
                               children: [
+                                /// DELETE
                                 IconButton(
                                   icon: const Icon(
                                     Icons.delete,
-      
                                     color: Colors.red,
                                   ),
-      
-                                  onPressed: () {
-                                    setState(() {
-                                      Navigator.push(
-                                        context,
-      
-                                        MaterialPageRoute(
-                                          builder: (_) => TransactionPage(),
-                                        ),
-                                      );
-                                    });
+                                  onPressed: () async {
+                                    await database.deleteTransaction(
+                                      item.transaction.id,
+                                    );
                                   },
                                 ),
-      
+
+                                /// EDIT
                                 IconButton(
                                   icon: const Icon(Icons.edit),
-      
                                   onPressed: () {
-                                    setState(() {
-                                      Navigator.push(
-                                        context,
-      
-                                        MaterialPageRoute(
-                                          builder: (_) => TransactionPage(
-                                            transactionwithCategory:
-                                                snapshot.data![index],
-                                          ),
-                                        ),
-                                      );
-                                    });
+                                    Get.to(() => TransactionPage(transactionWithCategory:snapshot.data![index]));
                                   },
                                 ),
                               ],
@@ -190,6 +165,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// ======================
+  /// SUMMARY ITEM
+  /// ======================
   Widget _summaryItem({
     required IconData icon,
     required Color iconColor,
@@ -207,7 +185,6 @@ class _HomePageState extends State<HomePage> {
           child: Icon(icon, color: iconColor, size: 20),
         ),
         const SizedBox(width: 8),
-        // Flexible ditambahkan agar teks yang panjang tidak overflow
         Flexible(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,7 +195,6 @@ class _HomePageState extends State<HomePage> {
                   color: Colors.white,
                   fontSize: 12,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
               Text(
@@ -228,9 +204,8 @@ class _HomePageState extends State<HomePage> {
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
-            ],
+            ],    
           ),
         ),
       ],

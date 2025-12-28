@@ -1,6 +1,8 @@
-class TransactionWithCategory {
-  final transaction;
-  final category;
+import 'package:info_saldo_apps/app/data/local/database.dart';
 
-  TransactionWithCategory(this.transaction, this.category);
+class TransactionWithCategory {
+  final Transaction transaction;
+  final Category category;
+
+  TransactionWithCategory({required this.transaction, required this.category});
 }

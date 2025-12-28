@@ -1,7 +1,7 @@
 import 'package:calendar_appbar/calendar_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:info_saldo_apps/app/modules/category/category_page.dart';
+import 'package:info_saldo_apps/app/modules/category/view/category_page.dart';
 import 'package:info_saldo_apps/app/modules/transaction/view/transaction_page.dart';
 import 'package:info_saldo_apps/app/modules/home/home_page.dart';
 import 'package:intl/intl.dart';
@@ -68,13 +68,13 @@ class _MainPageState extends State<MainPage> {
             ),
 
       floatingActionButton: Visibility(
-        visible: (currentIndex == 0) ? true : false,
+        visible: (currentIndex == 0) ? true : true,
         child: FloatingActionButton(
           onPressed: () {
             setState(() {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TransactionPage()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => TransactionPage()));
             });
           },
           backgroundColor: Color(0xFF5656B4),
